@@ -1,0 +1,195 @@
+通用库注册表增强版HTML实现
+
+这个版本新增了独立的库/数据库注册表模块，支持多数据源统一管理，所有数据本地持久化存储，完全适配联系人列表、目录、百科等各类条目集合。
+
+html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Random Entry System with Registry</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 2rem; background: #f8fafc; }
+        .header { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #e2e8f0; }
+        .tabs { display: flex; gap: 1rem; margin-bottom: 2rem; }
+        .tab-btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; background: #e2e8f0; cursor: pointer; font-size: 1rem; transition: all 0.2s; }
+        .tab-btn.active { background: #2563eb; color: white; }
+        .panel { display: none; }
+        .panel.active { display: block; }
+        .card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 1.5rem; }
+        .registry-item { padding: 1rem; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+        .entry-card { min-height: 250px; padding: 2rem; border-radius: 12px; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin: 2rem 0; }
+        button { padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; }
+        .primary-btn { background: #2563eb; color: white; }
+        .danger-btn { background: #ef4444; color: white; }
+        textarea, input { width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 6px; margin: 0.5rem 0; font-size: 1rem; }
+        .meta-info { color: #64748b; font-size: 0.9rem; margin-top: 0.5rem; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Universal Random Entry System</h1>
+        <p class="meta-info">Multi-library registry + single random entry retrieval</p>
+    </div>
+
+    <!-- 标签页切换 -->
+    <div class="tabs">
+        <button class="tab-btn active" data-panel="registry">Library Registry</button>
+        <button class="tab-btn" data-panel="picker">Random Entry Picker</button>
+    </div>
+
+    <!-- 1. 独立库注册表面板 -->
+    <div id="registry" class="panel active">
+        <div class="card">
+            <h3>Register New Library / Database</h3>
+            <input type="text" id="libName" placeholder="Library Name (e.g. Contact List, Wikipedia Snippet DB)">
+            <input type="text" id="libDesc" placeholder="Description (e.g. 2026 Q4 company contact directory)">
+            <textarea id="libEntries" placeholder="Paste all entries here, one per line"></textarea>
+            <button class="primary-btn" id="addLibBtn">Add to Registry</button>
+        </div>
+
+        <h3>Registered Libraries</h3>
+        <div id="registryList"></div>
+    </div>
+
+    <!-- 2. 随机条目抽取面板 -->
+    <div id="picker" class="panel">
+        <div class="card">
+            <h3>Select Source Library</h3>
+            <select id="activeLibSelect" style="width: 100%; padding: 0.75rem; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 1rem;"></select>
+            <p class="meta-info" id="libStats">No library selected</p>
+        </div>
+
+        <div class="entry-card" id="entryDisplay">Select a library first, then draw a random entry.</div>
+        <button class="primary-btn" id="drawBtn" disabled>Draw Single Random Entry</button>
+    </div>
+
+    <script>
+        // 注册表核心数据结构，本地持久化
+        let libraryRegistry = JSON.parse(localStorage.getItem('entryLibraryRegistry') || '[]');
+        let currentActiveLibId = null;
+
+        // 标签页切换逻辑
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.panel).classList.add('active');
+                renderRegistry();
+                renderLibSelect();
+            });
+        });
+
+        // 渲染注册表列表
+        function renderRegistry() {
+            const container = document.getElementById('registryList');
+            container.innerHTML = '';
+            libraryRegistry.forEach((lib, idx) => {
+                const item = document.createElement('div');
+                item.className = 'registry-item';
+                item.innerHTML = `
+                    <div>
+                        <h4>${lib.name}</h4>
+                        <p class="meta-info">${lib.desc} · ${lib.entries.length} total entries</p>
+                    </div>
+                    <button class="danger-btn" data-delete="${idx}">Remove</button>
+                `;
+                container.appendChild(item);
+            });
+
+            // 绑定删除事件
+            document.querySelectorAll('[data-delete]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    libraryRegistry.splice(parseInt(e.target.dataset.delete), 1);
+                    saveRegistry();
+                    renderRegistry();
+                    renderLibSelect();
+                });
+            });
+        }
+
+        // 渲染数据源选择下拉框
+        function renderLibSelect() {
+            const select = document.getElementById('activeLibSelect');
+            select.innerHTML = '<option value="">-- Select a library --</option>';
+            libraryRegistry.forEach((lib, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.textContent = `${lib.name} (${lib.entries.length} entries)`;
+                select.appendChild(opt);
+            });
+            drawBtn.disabled = libraryRegistry.length === 0;
+        }
+
+        // 持久化注册表到本地存储
+        function saveRegistry() {
+            localStorage.setItem('entryLibraryRegistry', JSON.stringify(libraryRegistry));
+        }
+
+        // 添加新库到注册表
+        document.getElementById('addLibBtn').addEventListener('click', () => {
+            const name = document.getElementById('libName').value.trim();
+            const desc = document.getElementById('libDesc').value.trim();
+            const entries = document.getElementById('libEntries').value.split('\n').map(e => e.trim()).filter(e => e.length > 0);
+            
+            if(!name || entries.length === 0) return alert('Library name and at least one entry are required!');
+            
+            libraryRegistry.push({
+                id: Date.now(),
+                name,
+                desc,
+                entries,
+                createdAt: new Date().toISOString()
+            });
+            
+            saveRegistry();
+            renderRegistry();
+            renderLibSelect();
+            
+            // 清空表单
+            document.getElementById('libName').value = '';
+            document.getElementById('libDesc').value = '';
+            document.getElementById('libEntries').value = '';
+            alert('Library successfully added to registry!');
+        });
+
+        // 选中数据源后更新统计信息
+        document.getElementById('activeLibSelect').addEventListener('change', (e) => {
+            currentActiveLibId = e.target.value;
+            if(currentActiveLibId === '') {
+                document.getElementById('libStats').textContent = 'No library selected';
+                drawBtn.disabled = true;
+                return;
+            }
+            const lib = libraryRegistry[currentActiveLibId];
+            document.getElementById('libStats').textContent = `Loaded: ${lib.name} · ${lib.entries.length} total entries`;
+            drawBtn.disabled = false;
+        });
+
+        // 通用单随机条目抽取逻辑
+        document.getElementById('drawBtn').addEventListener('click', () => {
+            const targetLib = libraryRegistry[currentActiveLibId];
+            // 密码学安全随机数，满足合规审计场景
+            const randomIdx = crypto.getRandomValues(new Uint32Array(1))[0] % targetLib.entries.length;
+            document.getElementById('entryDisplay').innerHTML = `
+                <h3>🎲 Random Entry #${randomIdx + 1}</h3>
+                <p style="margin-top: 1.5rem; font-size: 1.1rem; line-height: 1.6;">${targetLib.entries[randomIdx]}</p>
+                <p class="meta-info" style="margin-top: 2rem;">From library: ${targetLib.name}</p>
+            `;
+        });
+
+        // 页面初始化渲染
+        renderRegistry();
+        renderLibSelect();
+    </script>
+</body>
+</html>
+
+核心注册表特性
+独立元数据管理‌：每个注册的库都存储独立的名称、描述、创建时间和条目集合，完全隔离不同类型的数据源，不会出现条目混淆。
+本地持久化‌：所有注册表数据自动保存在浏览器LocalStorage中，刷新页面、重启浏览器后所有已注册的库不会丢失，无需后端服务器支持。
+零侵入接入‌：无需修改原有数据库/目录系统，直接将导出的条目文本粘贴即可完成注册，支持联系人列表、百科片段、政策校验清单等任意纯文本条目集合。
+扩展兼容能力‌：后续可直接对接自定义URI Scheme协议处理器，实现一键启动本地数据库客户端，也可扩展添加注册表搜索过滤功能，快速在几十上百个已注册库中定位目标数据源。
