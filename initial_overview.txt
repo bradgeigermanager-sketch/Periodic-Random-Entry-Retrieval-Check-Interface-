@@ -1,0 +1,72 @@
+通用单随机条目检索网页实现方案
+
+这套方案完全适配联系人列表、数据库、目录、百科等任意结构化条目集合，采用前后端解耦的通用架构，可快速对接不同数据源。
+
+一、核心通用架构
+
+整体采用三层无侵入设计，无需修改原有业务系统即可接入：
+
+数据源适配层‌：统一抽象不同条目集合的接入方式，支持CSV/JSON文件导入、REST API对接、数据库直连三类主流模式，自动将不同格式的条目映射为统一的通用字段结构（唯一ID、标题、详情、元数据标签）。
+随机抽取引擎层‌：内置三级随机策略，轻量场景用Math.random()快速取索引，批量不重复抽取用Fisher-Yates洗牌算法，合规审计类高安全场景直接调用浏览器crypto.getRandomValues()密码学安全接口，保证抽取结果无偏置、不可预测。
+通用展示层‌：采用响应式单页设计，自动适配不同条目类型的展示需求，支持自定义字段渲染模板，无需针对不同数据集重写页面。
+二、开箱即用最小实现
+
+这套3KB纯前端版本零依赖，双击HTML文件即可运行，支持直接导入任意条目集合：
+
+html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Random Entry Picker</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 3rem auto; padding: 0 2rem; }
+        .entry-card { padding: 2rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 2rem 0; min-height: 200px; }
+        button { padding: 12px 24px; background: #007BFF; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; }
+        textarea { width: 100%; height: 120px; margin: 1rem 0; padding: 12px; border-radius: 6px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>Universal Random Entry Browser</h1>
+    <textarea id="entryInput" placeholder="Paste your entries here, one per line (supports contact lists, directory listings, encyclopedia records etc.)"></textarea>
+    <button id="loadBtn">Load All Entries</button>
+    <div class="entry-card" id="entryDisplay">Click "Load Entries" first, then draw a random entry.</div>
+    <button id="drawBtn" disabled>Draw Single Random Entry</button>
+
+    <script>
+        let entryPool = [];
+        const entryInput = document.getElementById('entryInput');
+        const loadBtn = document.getElementById('loadBtn');
+        const drawBtn = document.getElementById('drawBtn');
+        const entryDisplay = document.getElementById('entryDisplay');
+
+        // Load and clean entry list
+        loadBtn.addEventListener('click', () => {
+            entryPool = entryInput.value.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            if(entryPool.length === 0) return alert('No valid entries found!');
+            drawBtn.disabled = false;
+            entryDisplay.textContent = `Loaded ${entryPool.length} total entries. Ready to draw.`;
+        });
+
+        // Universal single random entry picker
+        drawBtn.addEventListener('click', () => {
+            // Use crypto-secure random for compliance/audit scenarios
+            const randomIdx = crypto.getRandomValues(new Uint32Array(1))[0] % entryPool.length;
+            entryDisplay.innerHTML = `<h3>Random Entry #${randomIdx + 1}</h3><p>${entryPool[randomIdx]}</p>`;
+        });
+    </script>
+</body>
+</html>
+
+
+该实现完全基于原生HTML/CSS/JavaScript构建，无需后端服务器，所有数据在本地浏览器处理，不会上传任何条目信息，开箱即可用于轻量级的随机条目浏览与审计场景。
+
+三、生产级扩展能力
+
+针对企业级大规模数据集场景，可快速扩展以下通用能力：
+
+大数据库优化‌：避免全表排序性能损耗，采用ID范围随机偏移法，直接在数据库层生成随机ID后单条拉取，百万级数据集也能毫秒级返回结果。
+审计追踪模块‌：自动记录每一次抽取的时间戳、操作员、随机数哈希值，写入本地IndexedDB持久化存储，支持导出完整审计日志，完全满足政策合规校验的溯源需求。
+条目状态标记‌：内置"已校验/待跟进/有问题"三类状态标签，自动统计已覆盖条目占比，生成进度仪表盘，直观展示全量数据集的校验完成度。
+多格式导入‌：支持CSV、JSON、Excel批量导入，自动解析字段映射，无需手动整理条目文本，可直接对接现有联系人系统、目录数据库导出文件。
