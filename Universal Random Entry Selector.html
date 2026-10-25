@@ -1,0 +1,45 @@
+html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Random Entry Selector</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 3rem auto; padding: 0 2rem; }
+        .entry-card { padding: 2rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 2rem 0; min-height: 200px; }
+        button { padding: 12px 24px; background: #007BFF; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; }
+        textarea { width: 100%; height: 120px; margin: 1rem 0; padding: 12px; border-radius: 6px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>Universal Random Entry Browser</h1>
+    <textarea id="entryInput" placeholder="Paste your entries here, one per line (supports contact lists, directory listings, encyclopedia records etc.)"></textarea>
+    <button id="loadBtn">Load All Entries</button>
+    <div class="entry-card" id="entryDisplay">Click "Load Entries" first, then draw a random entry.</div>
+    <button id="drawBtn" disabled>Draw Single Random Entry</button>
+
+    <script>
+        let entryPool = [];
+        const entryInput = document.getElementById('entryInput');
+        const loadBtn = document.getElementById('loadBtn');
+        const drawBtn = document.getElementById('drawBtn');
+        const entryDisplay = document.getElementById('entryDisplay');
+
+        // Load and clean entry list
+        loadBtn.addEventListener('click', () => {
+            entryPool = entryInput.value.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            if(entryPool.length === 0) return alert('No valid entries found!');
+            drawBtn.disabled = false;
+            entryDisplay.textContent = `Loaded ${entryPool.length} total entries. Ready to draw.`;
+        });
+
+        // Universal single random entry picker
+        drawBtn.addEventListener('click', () => {
+            // Use crypto-secure random for compliance/audit scenarios
+            const randomIdx = crypto.getRandomValues(new Uint32Array(1))[0] % entryPool.length;
+            entryDisplay.innerHTML = `<h3>Random Entry #${randomIdx + 1}</h3><p>${entryPool[randomIdx]}</p>`;
+        });
+    </script>
+</body>
+</html>
